@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tv_status);
         tvFrames = findViewById(R.id.tv_frames);
 
-        etRelayUrl.setText("wss://your-relay.glitch.me");
+        etRelayUrl.setText("wss://confidential-gibson-drawing-flower.trycloudflare.com");
 
         StreamService.staticCallback = new StreamService.StreamCallback() {
             @Override

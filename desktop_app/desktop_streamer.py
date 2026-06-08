@@ -30,7 +30,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 VERSION = "2.0.0"
-DEFAULT_RELAY = "wss://your-relay.glitch.me"
+DEFAULT_RELAY = "wss://confidential-gibson-drawing-flower.trycloudflare.com"
 AGENT_PORT = 9001
 RECONNECT_DELAY = 5
 JPEG_QUALITY = 70
