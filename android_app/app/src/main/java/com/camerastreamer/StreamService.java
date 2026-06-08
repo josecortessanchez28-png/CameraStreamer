@@ -17,7 +17,6 @@ import android.os.IBinder;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.ByteBuffer;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -25,7 +24,6 @@ import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
-import okio.ByteString.Companion.toByteString;
 
 public class StreamService extends Service {
 
@@ -173,7 +171,7 @@ public class StreamService extends Service {
                 yuv.compressToJpeg(new Rect(0, 0, size.width, size.height), 70, out);
                 byte[] jpeg = out.toByteArray();
 
-                webSocket.send(jpeg.toByteString(0, jpeg.length));
+                webSocket.send(ByteString.of(jpeg));
 
                 frameCount++;
                 if (staticCallback != null) {
