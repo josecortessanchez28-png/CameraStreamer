@@ -1,0 +1,45 @@
+# PREFERENCES.cm - Preferencias del Proyecto
+# Archivo consultable por AI antes de responder
+# Se actualiza constantemente durante el proyecto
+
+## Hardware Disponible
+- Huawei Android 6.0 (emisor de video)
+- Samsung SM-J415FN (hotspot WiFi, ADB USB)
+- PC Windows (receptor de video)
+
+## Preferencias Técnicas
+- Android: API 23 (minSdk 23, Android 6.0)
+- Sin cables entre Huawei y PC
+- Sin depender de redes locales (usar internet)
+- Python 3 para app de escritorio
+- GitHub Actions para compilar APK
+- Todo editable por el usuario
+- Servidor relay en Glitch.com (gratuito)
+- WebSocket como protocolo de comunicación
+
+## Configuración de Stream
+- Resolución: 480p (640x480)
+- FPS: 10
+- JPEG quality: 70
+- Formato: binario WebSocket (JPEG frames directos)
+
+## UI/UX
+- App Android: botones simples (Iniciar/Detener, URL del relay)
+- App escritorio: Tkinter + OpenCV, grid multi-cámara
+- Atajos de teclado: d=screenshot, r=grabar, v=ver
+- API de agente en localhost:9001
+
+## Compilación y Despliegue
+- APK: push a GitHub → Actions compila → descargar APK
+- Relay: importar repo a Glitch.com → URL pública
+- Escritorio: python desktop_streamer.py
+
+## Idioma
+- Responder siempre en español
+- Mensajes claros y directos
+
+## Restricciones
+- NO instalar apps sin aprobación del usuario
+- NO usar plataformas de pago
+- NO complicar más de lo necesario
+- Priorizar soluciones que funcional en 5 minutos
