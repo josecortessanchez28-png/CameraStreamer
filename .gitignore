@@ -8,3 +8,5 @@ screenshots/
  recordings/
 .DS_Store
 Thumbs.db
+build_logs/
+build_logs.zip
