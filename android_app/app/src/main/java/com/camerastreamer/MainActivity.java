@@ -39,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private Camera camera;
     private OkHttpClient wsClient;
     private WebSocket webSocket;
-    private boolean streaming = false;
+    private volatile boolean streaming = false;
     private int frameCount = 0;
     private SurfaceHolder.Callback surfaceCallback;
 
@@ -187,11 +187,11 @@ public class MainActivity extends AppCompatActivity {
 
                 frameCount++;
                 runOnUiThread(() -> tvFrames.setText("Frames: " + frameCount));
+
+                cam.addCallbackBuffer(data);
             } catch (Exception e) {
                 // ignore
             }
-
-            cam.addCallbackBuffer(data);
         });
     }
 
