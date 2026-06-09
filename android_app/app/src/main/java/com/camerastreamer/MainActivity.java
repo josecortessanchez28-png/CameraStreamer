@@ -119,6 +119,11 @@ public class MainActivity extends AppCompatActivity {
             url = "wss://" + url;
         }
 
+        if (cameraHelper != null) {
+            cameraHelper.release();
+            cameraHelper = null;
+        }
+
         Intent intent = new Intent(this, StreamService.class);
         intent.putExtra("relay_url", url);
 
@@ -157,7 +162,6 @@ public class MainActivity extends AppCompatActivity {
             camera = cameraHelper.open(cameraId);
             if (camera != null && surfaceView.getHolder().getSurface().isValid()) {
                 cameraHelper.startPreview(surfaceView.getHolder());
-                btnStart.setEnabled(true);
                 tvStatus.setText("Cámara lista - Pulsa Iniciar");
             }
         }
