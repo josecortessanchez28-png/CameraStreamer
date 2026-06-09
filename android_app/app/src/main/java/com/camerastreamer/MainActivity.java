@@ -15,35 +15,32 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+public class MainActivity extends AppCompatActivity {
 
+    private CameraHelper cameraHelper;
+    private Camera camera;
+    private SurfaceView surfaceView;
     private EditText etRelayUrl;
     private Button btnStart;
     private Button btnStop;
     private TextView tvStatus;
     private TextView tvFrames;
-    private SurfaceView surfaceView;
-    private SurfaceHolder surfaceHolder;
-    private CameraHelper cameraHelper;
-    private Camera camera;
-    private boolean isStreaming = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        surfaceView = findViewById(R.id.surface_view);
         etRelayUrl = findViewById(R.id.et_relay_url);
         btnStart = findViewById(R.id.btn_start);
         btnStop = findViewById(R.id.btn_stop);
         tvStatus = findViewById(R.id.tv_status);
         tvFrames = findViewById(R.id.tv_frames);
-        surfaceView = findViewById(R.id.surface_view);
 
         etRelayUrl.setText("wss://confidential-gibson-drawing-flower.trycloudflare.com");
 
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
+        tvStatus.setText("Iniciando...");
 
         StreamService.staticCallback = new StreamService.StreamCallback() {
             @Override
@@ -67,44 +64,48 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if (Build.VERSION.SDK_INT >= 23) {
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.CAMERA}, 100);
+                return;
             }
         }
+        openCamera();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == 100) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permiso concedido", Toast.LENGTH_SHORT).show();
+                openCamera();
             } else {
-                Toast.makeText(this, "Se necesita permiso de cámara", Toast.LENGTH_LONG).show();
+                tvStatus.setText("Permiso de cámara denegado");
             }
         }
     }
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+    private void openCamera() {
         cameraHelper = new CameraHelper();
         int cameraId = CameraHelper.findBackCamera();
         camera = cameraHelper.open(cameraId);
 
         if (camera == null) {
             tvStatus.setText("Error: No se pudo abrir la cámara");
+            btnStart.setEnabled(false);
             return;
         }
 
-        cameraHelper.startPreview(holder);
-        tvStatus.setText("Cámara lista - Pulsa Iniciar");
-    }
+        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+                cameraHelper.startPreview(holder);
+                btnStart.setEnabled(true);
+                tvStatus.setText("Cámara lista - Pulsa Iniciar");
+            }
 
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {}
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {}
 
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        if (cameraHelper != null) {
-            cameraHelper.release();
-        }
+            @Override
+            public void surfaceDestroyed(SurfaceHolder holder) {}
+        });
     }
 
     private void startStream() {
@@ -127,7 +128,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             startService(intent);
         }
 
-        isStreaming = true;
         btnStart.setEnabled(false);
         btnStop.setEnabled(true);
         tvStatus.setText("Iniciando...");
@@ -137,11 +137,30 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         Intent intent = new Intent(this, StreamService.class);
         stopService(intent);
 
-        isStreaming = false;
         btnStart.setEnabled(true);
         btnStop.setEnabled(false);
         tvStatus.setText("Detenido");
         tvFrames.setText("Frames: 0");
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (cameraHelper != null) cameraHelper.release();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (cameraHelper != null) {
+            int cameraId = CameraHelper.findBackCamera();
+            camera = cameraHelper.open(cameraId);
+            if (camera != null && surfaceView.getHolder().getSurface().isValid()) {
+                cameraHelper.startPreview(surfaceView.getHolder());
+                btnStart.setEnabled(true);
+                tvStatus.setText("Cámara lista - Pulsa Iniciar");
+            }
+        }
     }
 
     @Override
