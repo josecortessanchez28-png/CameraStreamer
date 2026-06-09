@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const os = require('os');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,27 +11,33 @@ const PORT = process.env.PORT || 3000;
 const senders = new Map();
 const receivers = new Set();
 
+let latestFrame = null;
 let frameCount = 0;
-let lastFpsTime = Date.now();
-let currentFps = 0;
+
+app.use(express.raw({ type: '*/*', limit: '10mb' }));
+
+app.post('/upload', (req, res) => {
+  latestFrame = req.body;
+  frameCount++;
+  res.send('OK');
+});
+
+app.get('/frame.jpg', (req, res) => {
+  if (!latestFrame) return res.status(404).send('No frame');
+  res.type('image/jpeg').send(latestFrame);
+});
 
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     service: 'CameraStreamer Relay',
     senders: Array.from(senders.values()).map(s => ({
-      id: s.id,
-      name: s.name,
+      id: s.id, name: s.name,
       connected: s.ws.readyState === WebSocket.OPEN
     })),
     receivers: receivers.size,
-    fps: currentFps,
-    totalFrames: frameCount
+    frames: frameCount
   });
-});
-
-app.get('/health', (req, res) => {
-  res.json({ ok: true, uptime: process.uptime() });
 });
 
 wss.on('connection', (ws, req) => {
@@ -44,83 +49,35 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', (data, isBinary) => {
     if (isBinary) {
+      latestFrame = data;
       frameCount++;
-
-      const now = Date.now();
-      if (now - lastFpsTime >= 1000) {
-        currentFps = frameCount;
-        frameCount = 0;
-        lastFpsTime = now;
-      }
-
-      for (const receiver of receivers) {
-        if (receiver.readyState === WebSocket.OPEN) {
-          receiver.send(data);
-        }
+      for (const r of receivers) {
+        if (r.readyState === WebSocket.OPEN) r.send(data);
       }
     } else {
       try {
         const msg = JSON.parse(data.toString());
-
         if (msg.type === 'register') {
           isSender = true;
           senderId = msg.camera_id || `cam_${Date.now()}`;
-          senders.set(senderId, {
-            id: senderId,
-            name: msg.name || senderId,
-            ws: ws
-          });
-          console.log(`[SENDER] Registered: ${senderId} (${msg.name})`);
-
-          ws.send(JSON.stringify({
-            type: 'registered',
-            camera_id: senderId,
-            status: 'ok'
-          }));
+          senders.set(senderId, { id: senderId, name: msg.name || senderId, ws });
+          console.log(`[SENDER] Registered: ${senderId}`);
+          ws.send(JSON.stringify({ type: 'registered', camera_id: senderId, status: 'ok' }));
         }
-
-        if (msg.type === 'command') {
-          for (const [id, sender] of senders) {
-            if (sender.ws.readyState === WebSocket.OPEN) {
-              sender.ws.send(JSON.stringify(msg));
-            }
-          }
-        }
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   });
 
   ws.on('close', () => {
-    console.log(`[DISCONNECT] ${ip}`);
-    if (isSender && senderId) {
-      senders.delete(senderId);
-      console.log(`[SENDER] Removed: ${senderId}`);
-    }
+    if (isSender && senderId) senders.delete(senderId);
     receivers.delete(ws);
   });
 
-  ws.on('error', (err) => {
-    console.log(`[ERROR] ${ip}: ${err.message}`);
-  });
-
   setTimeout(() => {
-    if (!isSender) {
-      receivers.add(ws);
-      console.log(`[RECEIVER] Added (total: ${receivers.size})`);
-    }
+    if (!isSender) { receivers.add(ws); console.log(`[RECEIVER] Added (total: ${receivers.size})`); }
   }, 100);
 });
 
-setInterval(() => {
-  for (const receiver of receivers) {
-    if (receiver.readyState !== WebSocket.OPEN) {
-      receivers.delete(receiver);
-    }
-  }
-}, 30000);
-
 server.listen(PORT, () => {
   console.log(`CameraStreamer Relay running on port ${PORT}`);
-  console.log(`Status: http://localhost:${PORT}`);
 });
