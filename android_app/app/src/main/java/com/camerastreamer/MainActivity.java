@@ -139,8 +139,8 @@ public class MainActivity extends AppCompatActivity {
                     btnStart.setEnabled(false);
                     btnStop.setEnabled(true);
                     tvStatus.setText("Transmitiendo...");
+                    startFrameCapture();
                 });
-                startFrameCapture();
             }
 
             @Override
