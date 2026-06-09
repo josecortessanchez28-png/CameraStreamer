@@ -6,8 +6,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
@@ -39,18 +37,10 @@ public class StreamService extends Service {
     private String cameraId;
     private boolean running = false;
     private int frameCount = 0;
-    private int targetWidth = 640;
-    private int targetHeight = 480;
-
-    private StreamCallback callback;
 
     public interface StreamCallback {
         void onFrameCount(int count);
         void onStatus(String status);
-    }
-
-    public void setCallback(StreamCallback cb) {
-        this.callback = cb;
     }
 
     public static StreamCallback staticCallback;
@@ -157,8 +147,6 @@ public class StreamService extends Service {
         }
 
         Camera.Size previewSize = camera.getParameters().getPreviewSize();
-        targetWidth = previewSize.width;
-        targetHeight = previewSize.height;
 
         cameraHelper.addCallbackBuffer(new byte[previewSize.width * previewSize.height * 3 / 2]);
         cameraHelper.setPreviewCallback((data, cam) -> {
