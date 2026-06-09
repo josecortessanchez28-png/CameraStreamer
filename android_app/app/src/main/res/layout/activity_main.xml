@@ -3,51 +3,52 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp">
+    android:padding="16dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="CameraStreamer"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="24dp" />
+    <SurfaceView
+        android:id="@+id/surface_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="12dp" />
 
     <EditText
         android:id="@+id/et_relay_url"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="wss://tu-relay.glitch.me"
+        android:hint="wss://tu-relay.trycloudflare.com"
         android:inputType="textUri"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp" />
+        android:textSize="13sp"
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:id="@+id/tv_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Desconectado"
-        android:textColor="#F44336"
-        android:textSize="16sp"
-        android:layout_marginBottom="24dp" />
+        android:text="Esperando cámara..."
+        android:textColor="#FF9800"
+        android:textSize="14sp"
+        android:layout_marginBottom="8dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center">
+        android:gravity="center"
+        android:layout_marginBottom="8dp">
 
         <Button
             android:id="@+id/btn_start"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
             android:text="Iniciar"
-            android:layout_marginEnd="16dp" />
+            android:layout_marginEnd="8dp" />
 
         <Button
             android:id="@+id/btn_stop"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
             android:text="Detener"
             android:enabled="false" />
@@ -58,7 +59,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Frames: 0"
-        android:textSize="12sp"
-        android:layout_marginTop="24dp" />
+        android:textSize="12sp" />
 
 </LinearLayout>
