@@ -85,9 +85,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openCamera() {
-        cameraHelper = new CameraHelper();
-        int id = CameraHelper.findBackCamera();
-        camera = cameraHelper.open(id);
+        try {
+            int id = 0;
+            camera = Camera.open(id);
+        } catch (Exception e) {
+            tvStatus.setText("Error: " + e.getMessage());
+            return;
+        }
 
         if (camera == null) {
             tvStatus.setText("Error: No se pudo abrir la camara");
