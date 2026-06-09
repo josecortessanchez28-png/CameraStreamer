@@ -1,8 +1,10 @@
 package com.camerastreamer;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,44 +17,46 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.ByteArrayOutputStream;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
+
 public class MainActivity extends AppCompatActivity {
 
-    private CameraHelper cameraHelper;
-    private Camera camera;
-    private SurfaceView surfaceView;
     private EditText etRelayUrl;
     private Button btnStart;
     private Button btnStop;
     private TextView tvStatus;
     private TextView tvFrames;
+    private SurfaceView surfaceView;
+
+    private CameraHelper cameraHelper;
+    private Camera camera;
+    private OkHttpClient wsClient;
+    private WebSocket webSocket;
+    private boolean streaming = false;
+    private int frameCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        surfaceView = findViewById(R.id.surface_view);
         etRelayUrl = findViewById(R.id.et_relay_url);
         btnStart = findViewById(R.id.btn_start);
         btnStop = findViewById(R.id.btn_stop);
         tvStatus = findViewById(R.id.tv_status);
         tvFrames = findViewById(R.id.tv_frames);
+        surfaceView = findViewById(R.id.surface_view);
 
         etRelayUrl.setText("wss://confidential-gibson-drawing-flower.trycloudflare.com");
 
-        tvStatus.setText("Iniciando...");
-
-        StreamService.staticCallback = new StreamService.StreamCallback() {
-            @Override
-            public void onFrameCount(int count) {
-                runOnUiThread(() -> tvFrames.setText("Frames: " + count));
-            }
-
-            @Override
-            public void onStatus(String status) {
-                runOnUiThread(() -> tvStatus.setText(status));
-            }
-        };
+        wsClient = new OkHttpClient();
 
         btnStart.setOnClickListener(v -> startStream());
         btnStop.setOnClickListener(v -> stopStream());
@@ -72,32 +76,31 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode == 100) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                openCamera();
-            } else {
-                tvStatus.setText("Permiso de cámara denegado");
-            }
+        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            openCamera();
         }
     }
 
     private void openCamera() {
         cameraHelper = new CameraHelper();
-        int cameraId = CameraHelper.findBackCamera();
-        camera = cameraHelper.open(cameraId);
+        int id = CameraHelper.findBackCamera();
+        camera = cameraHelper.open(id);
 
         if (camera == null) {
             tvStatus.setText("Error: No se pudo abrir la cámara");
-            btnStart.setEnabled(false);
             return;
         }
 
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                cameraHelper.startPreview(holder);
-                btnStart.setEnabled(true);
-                tvStatus.setText("Cámara lista - Pulsa Iniciar");
+                try {
+                    cameraHelper.startPreview(holder);
+                    tvStatus.setText("Cámara lista - Pulsa Iniciar");
+                    btnStart.setEnabled(true);
+                } catch (Exception e) {
+                    tvStatus.setText("Error preview: " + e.getMessage());
+                }
             }
 
             @Override
@@ -114,62 +117,116 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Introduce la URL del relay", Toast.LENGTH_SHORT).show();
             return;
         }
-
         if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
             url = "wss://" + url;
         }
 
-        if (cameraHelper != null) {
-            cameraHelper.release();
-            cameraHelper = null;
+        if (camera == null) {
+            Toast.makeText(this, "Cámara no disponible", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        Intent intent = new Intent(this, StreamService.class);
-        intent.putExtra("relay_url", url);
+        final String relayUrl = url;
+        Request request = new Request.Builder().url(relayUrl).build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
+        webSocket = wsClient.newWebSocket(request, new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket ws, Response response) {
+                String msg = "{\"type\":\"register\",\"camera_id\":\"android\",\"name\":\"Camera " + Build.MODEL + "\"}";
+                ws.send(msg);
+                streaming = true;
+                runOnUiThread(() -> {
+                    btnStart.setEnabled(false);
+                    btnStop.setEnabled(true);
+                    tvStatus.setText("Transmitiendo...");
+                });
+                startFrameCapture();
+            }
 
-        btnStart.setEnabled(false);
-        btnStop.setEnabled(true);
-        tvStatus.setText("Iniciando...");
+            @Override
+            public void onFailure(WebSocket ws, Throwable t, Response response) {
+                streaming = false;
+                runOnUiThread(() -> {
+                    tvStatus.setText("Error: " + t.getMessage());
+                    btnStart.setEnabled(true);
+                    btnStop.setEnabled(false);
+                });
+            }
+
+            @Override
+            public void onClosed(WebSocket ws, int code, String reason) {
+                streaming = false;
+                runOnUiThread(() -> {
+                    tvStatus.setText("Desconectado");
+                    btnStart.setEnabled(true);
+                    btnStop.setEnabled(false);
+                });
+            }
+        });
+    }
+
+    private void startFrameCapture() {
+        Camera.Size size = camera.getParameters().getPreviewSize();
+        cameraHelper.addCallbackBuffer(new byte[size.width * size.height * 3 / 2]);
+        cameraHelper.setPreviewCallback((data, cam) -> {
+            if (!streaming || webSocket == null) return;
+
+            try {
+                Camera.Size sz = cam.getParameters().getPreviewSize();
+                YuvImage yuv = new YuvImage(data, ImageFormat.NV21, sz.width, sz.height, null);
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                yuv.compressToJpeg(new Rect(0, 0, sz.width, sz.height), 70, out);
+                byte[] jpeg = out.toByteArray();
+
+                webSocket.send(ByteString.of(jpeg));
+
+                frameCount++;
+                runOnUiThread(() -> tvFrames.setText("Frames: " + frameCount));
+            } catch (Exception e) {
+                // ignore
+            }
+
+            cam.addCallbackBuffer(data);
+        });
     }
 
     private void stopStream() {
-        Intent intent = new Intent(this, StreamService.class);
-        stopService(intent);
-
+        streaming = false;
+        if (webSocket != null) {
+            webSocket.close(1000, "Stopped");
+            webSocket = null;
+        }
+        if (camera != null) {
+            try {
+                camera.setPreviewCallback(null);
+            } catch (Exception ignored) {}
+        }
         btnStart.setEnabled(true);
         btnStop.setEnabled(false);
         tvStatus.setText("Detenido");
         tvFrames.setText("Frames: 0");
+        frameCount = 0;
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        if (streaming) stopStream();
         if (cameraHelper != null) cameraHelper.release();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (cameraHelper != null) {
-            int cameraId = CameraHelper.findBackCamera();
-            camera = cameraHelper.open(cameraId);
-            if (camera != null && surfaceView.getHolder().getSurface().isValid()) {
-                cameraHelper.startPreview(surfaceView.getHolder());
-                tvStatus.setText("Cámara lista - Pulsa Iniciar");
-            }
+        if (!streaming && cameraHelper == null) {
+            openCamera();
         }
     }
 
     @Override
     protected void onDestroy() {
-        StreamService.staticCallback = null;
+        if (webSocket != null) webSocket.close(1000, "Destroy");
+        if (cameraHelper != null) cameraHelper.release();
         super.onDestroy();
     }
 }
