@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.os.Build;
@@ -133,49 +134,54 @@ public class StreamService extends Service {
     }
 
     private void startCamera() {
-        cameraHelper = new CameraHelper();
-        int id = CameraHelper.findBackCamera();
-        camera = cameraHelper.open(id);
-
-        if (camera == null) {
-            Log.e(TAG, "Could not open camera");
-            updateNotification("Error: cámara no disponible");
-            if (staticCallback != null) {
-                staticCallback.onStatus("Error: cámara no disponible");
-            }
-            return;
-        }
-
-        Camera.Size previewSize = camera.getParameters().getPreviewSize();
-
-        cameraHelper.addCallbackBuffer(new byte[previewSize.width * previewSize.height * 3 / 2]);
-        cameraHelper.setPreviewCallback((data, cam) -> {
-            if (!running || webSocket == null) return;
-
-            try {
-                Camera.Size size = cam.getParameters().getPreviewSize();
-                YuvImage yuv = new YuvImage(data, ImageFormat.NV21, size.width, size.height, null);
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                yuv.compressToJpeg(new Rect(0, 0, size.width, size.height), 70, out);
-                byte[] jpeg = out.toByteArray();
-
-                webSocket.send(ByteString.of(jpeg));
-
-                frameCount++;
-                if (staticCallback != null) {
-                    staticCallback.onFrameCount(frameCount);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error processing frame: " + e.getMessage());
-            }
-
-            cam.addCallbackBuffer(data);
-        });
-
         try {
+            cameraHelper = new CameraHelper();
+            int id = CameraHelper.findBackCamera();
+            camera = cameraHelper.open(id);
+
+            if (camera == null) {
+                Log.e(TAG, "Could not open camera");
+                updateNotification("Error: cámara no disponible");
+                if (staticCallback != null) {
+                    staticCallback.onStatus("Error: cámara no disponible");
+                }
+                return;
+            }
+
+            Camera.Size previewSize = camera.getParameters().getPreviewSize();
+
+            SurfaceTexture dummyTexture = new SurfaceTexture(0);
+            camera.setPreviewTexture(dummyTexture);
+
+            cameraHelper.addCallbackBuffer(new byte[previewSize.width * previewSize.height * 3 / 2]);
+            cameraHelper.setPreviewCallback((data, cam) -> {
+                if (!running || webSocket == null) return;
+
+                try {
+                    Camera.Size size = cam.getParameters().getPreviewSize();
+                    YuvImage yuv = new YuvImage(data, ImageFormat.NV21, size.width, size.height, null);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    yuv.compressToJpeg(new Rect(0, 0, size.width, size.height), 70, out);
+                    byte[] jpeg = out.toByteArray();
+
+                    webSocket.send(ByteString.of(jpeg));
+
+                    frameCount++;
+                    if (staticCallback != null) {
+                        staticCallback.onFrameCount(frameCount);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing frame: " + e.getMessage());
+                }
+
+                cam.addCallbackBuffer(data);
+            });
+
             camera.startPreview();
+            Log.d(TAG, "Camera started with dummy SurfaceTexture");
         } catch (Exception e) {
-            Log.e(TAG, "Error starting preview: " + e.getMessage());
+            Log.e(TAG, "Error starting camera: " + e.getMessage());
+            updateNotification("Error: " + e.getMessage());
         }
     }
 
