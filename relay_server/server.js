@@ -19,6 +19,10 @@ app.use(express.raw({ type: '*/*', limit: '10mb' }));
 app.post('/upload', (req, res) => {
   latestFrame = req.body;
   frameCount++;
+  // Broadcast to all WebSocket receivers (PC clients)
+  for (const r of receivers) {
+    if (r.readyState === WebSocket.OPEN) r.send(latestFrame);
+  }
   res.send('OK');
 });
 
@@ -42,7 +46,7 @@ app.get('/', (req, res) => {
 
 wss.on('connection', (ws, req) => {
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  console.log(`[CONNECT] ${ip}`);
+  console.log([CONNECT] );
 
   let isSender = false;
   let senderId = null;
@@ -59,9 +63,9 @@ wss.on('connection', (ws, req) => {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'register') {
           isSender = true;
-          senderId = msg.camera_id || `cam_${Date.now()}`;
+          senderId = msg.camera_id || cam_;
           senders.set(senderId, { id: senderId, name: msg.name || senderId, ws });
-          console.log(`[SENDER] Registered: ${senderId}`);
+          console.log([SENDER] Registered: );
           ws.send(JSON.stringify({ type: 'registered', camera_id: senderId, status: 'ok' }));
         }
       } catch (e) {}
@@ -74,10 +78,10 @@ wss.on('connection', (ws, req) => {
   });
 
   setTimeout(() => {
-    if (!isSender) { receivers.add(ws); console.log(`[RECEIVER] Added (total: ${receivers.size})`); }
+    if (!isSender) { receivers.add(ws); console.log([RECEIVER] Added (total: )); }
   }, 100);
 });
 
 server.listen(PORT, () => {
-  console.log(`CameraStreamer Relay running on port ${PORT}`);
+  console.log(CameraStreamer Relay running on port );
 });
