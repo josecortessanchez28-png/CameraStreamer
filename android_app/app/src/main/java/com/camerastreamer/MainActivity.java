@@ -3,9 +3,11 @@ package com.camerastreamer;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -13,13 +15,17 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private EditText etRelayUrl;
     private Button btnStart;
     private Button btnStop;
     private TextView tvStatus;
     private TextView tvFrames;
+    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder;
+    private CameraHelper cameraHelper;
+    private Camera camera;
     private boolean isStreaming = false;
 
     @Override
@@ -32,8 +38,12 @@ public class MainActivity extends AppCompatActivity {
         btnStop = findViewById(R.id.btn_stop);
         tvStatus = findViewById(R.id.tv_status);
         tvFrames = findViewById(R.id.tv_frames);
+        surfaceView = findViewById(R.id.surface_view);
 
         etRelayUrl.setText("wss://confidential-gibson-drawing-flower.trycloudflare.com");
+
+        surfaceHolder = surfaceView.getHolder();
+        surfaceHolder.addCallback(this);
 
         StreamService.staticCallback = new StreamService.StreamCallback() {
             @Override
@@ -65,11 +75,35 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == 100) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permiso de cámara concedido", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Permiso concedido", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "Se necesita permiso de cámara", Toast.LENGTH_LONG).show();
-                finish();
             }
+        }
+    }
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        cameraHelper = new CameraHelper();
+        int cameraId = CameraHelper.findBackCamera();
+        camera = cameraHelper.open(cameraId);
+
+        if (camera == null) {
+            tvStatus.setText("Error: No se pudo abrir la cámara");
+            return;
+        }
+
+        cameraHelper.startPreview(holder);
+        tvStatus.setText("Cámara lista - Pulsa Iniciar");
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {}
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        if (cameraHelper != null) {
+            cameraHelper.release();
         }
     }
 
