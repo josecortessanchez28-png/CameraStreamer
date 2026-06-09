@@ -9,10 +9,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.IOException;
 
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
-import okhttp3.internal.JavaNetHeaders;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -64,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Request relayReq = new Request.Builder()
                     .url(relayUrl)
-                    .post(okhttp3.RequestBody.create(null, jpeg))
+                    .post(RequestBody.create(jpeg, MediaType.parse("image/jpeg")))
                     .build();
                 Response relayResp = client.newCall(relayReq).execute();
                 relayResp.close();
