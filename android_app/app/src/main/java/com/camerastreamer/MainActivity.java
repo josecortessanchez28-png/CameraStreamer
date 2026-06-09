@@ -42,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
     private volatile boolean streaming = false;
     private int frameCount = 0;
     private SurfaceHolder.Callback surfaceCallback;
+    private int previewWidth;
+    private int previewHeight;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,7 +90,7 @@ public class MainActivity extends AppCompatActivity {
         camera = cameraHelper.open(id);
 
         if (camera == null) {
-            tvStatus.setText("Error: No se pudo abrir la cámara");
+            tvStatus.setText("Error: No se pudo abrir la camara");
             return;
         }
 
@@ -100,7 +102,10 @@ public class MainActivity extends AppCompatActivity {
             public void surfaceCreated(SurfaceHolder holder) {
                 try {
                     cameraHelper.startPreview(holder);
-                    tvStatus.setText("Cámara lista - Pulsa Iniciar");
+                    Camera.Size size = camera.getParameters().getPreviewSize();
+                    previewWidth = size.width;
+                    previewHeight = size.height;
+                    tvStatus.setText("Camara lista - Pulsa Iniciar");
                     btnStart.setEnabled(true);
                 } catch (Exception e) {
                     tvStatus.setText("Error preview: " + e.getMessage());
@@ -127,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (camera == null) {
-            Toast.makeText(this, "Cámara no disponible", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Camara no disponible", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -171,26 +176,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startFrameCapture() {
-        Camera.Size size = camera.getParameters().getPreviewSize();
-        cameraHelper.addCallbackBuffer(new byte[size.width * size.height * 3 / 2]);
-        cameraHelper.setPreviewCallback((data, cam) -> {
+        final ByteArrayOutputStream jpegBuffer = new ByteArrayOutputStream();
+        final Rect rect = new Rect(0, 0, previewWidth, previewHeight);
+
+        camera.setPreviewCallback((data, cam) -> {
             if (!streaming || webSocket == null) return;
 
             try {
-                Camera.Size sz = cam.getParameters().getPreviewSize();
-                YuvImage yuv = new YuvImage(data, ImageFormat.NV21, sz.width, sz.height, null);
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                yuv.compressToJpeg(new Rect(0, 0, sz.width, sz.height), 70, out);
-                byte[] jpeg = out.toByteArray();
+                YuvImage yuv = new YuvImage(data, ImageFormat.NV21, previewWidth, previewHeight, null);
+                jpegBuffer.reset();
+                yuv.compressToJpeg(rect, 70, jpegBuffer);
+                byte[] jpeg = jpegBuffer.toByteArray();
 
                 webSocket.send(ByteString.of(jpeg));
 
                 frameCount++;
                 runOnUiThread(() -> tvFrames.setText("Frames: " + frameCount));
-
-                cam.addCallbackBuffer(data);
             } catch (Exception e) {
-                // ignore
             }
         });
     }
