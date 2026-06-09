@@ -15,7 +15,7 @@
         android:allowBackup="true"
         android:label="CameraStreamer"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".MainActivity"
