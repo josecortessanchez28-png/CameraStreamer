@@ -1,47 +1,30 @@
 package com.camerastreamer;
 
 import android.hardware.Camera;
+import android.view.SurfaceHolder;
+
+import java.io.IOException;
 
 public class CameraHelper {
 
     private Camera camera;
 
-    public static int findBackCamera() {
-        for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
-            Camera.CameraInfo info = new Camera.CameraInfo();
-            Camera.getCameraInfo(i, info);
-            if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
     public Camera open(int cameraId) {
         try {
             camera = Camera.open(cameraId);
-            Camera.Parameters params = camera.getParameters();
-
-            Camera.Size bestSize = null;
-            for (Camera.Size size : params.getSupportedPreviewSizes()) {
-                if (size.width <= 640 && size.height <= 480) {
-                    if (bestSize == null || (size.width > bestSize.width && size.height > bestSize.height)) {
-                        bestSize = size;
-                    }
-                }
-            }
-            if (bestSize != null) {
-                params.setPreviewSize(bestSize.width, bestSize.height);
-            }
-
-            if (params.getSupportedFocusModes().contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
-                params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            }
-
-            camera.setParameters(params);
             return camera;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    public void startPreview(SurfaceHolder holder) {
+        if (camera == null) return;
+        try {
+            camera.setPreviewDisplay(holder);
+            camera.startPreview();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -63,12 +46,26 @@ public class CameraHelper {
                 camera.setPreviewCallback(null);
                 camera.stopPreview();
                 camera.release();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             camera = null;
         }
     }
 
     public Camera getCamera() {
         return camera;
+    }
+
+    public static int findBackCamera() {
+        int numberOfCameras = Camera.getNumberOfCameras();
+        for (int i = 0; i < numberOfCameras; i++) {
+            Camera.CameraInfo info = new Camera.CameraInfo();
+            Camera.getCameraInfo(i, info);
+            if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                return i;
+            }
+        }
+        return 0;
     }
 }
