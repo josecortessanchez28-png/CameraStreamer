@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         tvFrames = findViewById(R.id.tv_frames);
         surfaceView = findViewById(R.id.surface_view);
 
-        etRelayUrl.setText("wss://confidential-gibson-drawing-flower.trycloudflare.com");
+        etRelayUrl.setText("wss://camara-relay.onrender.com");
 
         wsClient = new OkHttpClient();
 
