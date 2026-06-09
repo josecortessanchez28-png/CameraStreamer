@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private WebSocket webSocket;
     private boolean streaming = false;
     private int frameCount = 0;
+    private SurfaceHolder.Callback surfaceCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +92,10 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+        if (surfaceCallback != null) {
+            surfaceView.getHolder().removeCallback(surfaceCallback);
+        }
+        surfaceCallback = new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 try {
@@ -108,7 +112,8 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {}
-        });
+        };
+        surfaceView.getHolder().addCallback(surfaceCallback);
     }
 
     private void startStream() {
