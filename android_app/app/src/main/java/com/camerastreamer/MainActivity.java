@@ -1,8 +1,11 @@
 package com.camerastreamer;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,6 +22,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Button btnStart, btnStop;
     private TextView tvStatus, tvFrames;
+    private ImageView ivPreview;
     private OkHttpClient client;
     private Handler handler = new Handler();
     private boolean streaming = false;
@@ -34,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
         btnStop = findViewById(R.id.btn_stop);
         tvStatus = findViewById(R.id.tv_status);
         tvFrames = findViewById(R.id.tv_frames);
+        ivPreview = findViewById(R.id.iv_preview);
 
         client = new OkHttpClient.Builder()
             .retryOnConnectionFailure(true)
@@ -48,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
         frameCount = 0;
         btnStart.setEnabled(false);
         btnStop.setEnabled(true);
-        tvStatus.setText("Transmitiendo...");
+        tvStatus.setText("Conectando...");
         captureAndSend();
     }
 
@@ -62,6 +67,13 @@ public class MainActivity extends AppCompatActivity {
                     .build();
                 Response shotResp = client.newCall(shotReq).execute();
                 byte[] jpeg = shotResp.body().bytes();
+                shotResp.close();
+
+                Bitmap bmp = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
+                runOnUiThread(() -> {
+                    ivPreview.setImageBitmap(bmp);
+                    tvStatus.setText("Transmitiendo");
+                });
 
                 Request relayReq = new Request.Builder()
                     .url(relayUrl)
@@ -73,7 +85,12 @@ public class MainActivity extends AppCompatActivity {
                 frameCount++;
                 runOnUiThread(() -> tvFrames.setText("Frames: " + frameCount));
             } catch (IOException e) {
-                runOnUiThread(() -> tvStatus.setText("Error: " + e.getMessage()));
+                runOnUiThread(() -> {
+                    tvStatus.setText("Error: " + e.getMessage());
+                    if (!streaming) {
+                        ivPreview.setImageResource(android.R.color.transparent);
+                    }
+                });
             }
 
             if (streaming) {
