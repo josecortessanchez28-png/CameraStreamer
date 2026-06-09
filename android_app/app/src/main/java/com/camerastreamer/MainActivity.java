@@ -212,13 +212,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         if (streaming) stopStream();
-        if (cameraHelper != null) cameraHelper.release();
+        if (cameraHelper != null) {
+            cameraHelper.release();
+            cameraHelper = null;
+            camera = null;
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (!streaming && cameraHelper == null) {
+        if (!streaming) {
             openCamera();
         }
     }
