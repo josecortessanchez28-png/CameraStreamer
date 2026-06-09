@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private CameraHelper cameraHelper;
     private Camera camera;
     private OkHttpClient wsClient;
-    private WebSocket webSocket;
+    private volatile WebSocket webSocket;
     private volatile boolean streaming = false;
     private int frameCount = 0;
     private SurfaceHolder.Callback surfaceCallback;
@@ -176,11 +176,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startFrameCapture() {
+        final WebSocket ws = webSocket;
         final ByteArrayOutputStream jpegBuffer = new ByteArrayOutputStream();
         final Rect rect = new Rect(0, 0, previewWidth, previewHeight);
 
         camera.setPreviewCallback((data, cam) -> {
-            if (!streaming || webSocket == null) return;
+            if (!streaming || ws == null) return;
 
             try {
                 YuvImage yuv = new YuvImage(data, ImageFormat.NV21, previewWidth, previewHeight, null);
@@ -188,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                 yuv.compressToJpeg(rect, 70, jpegBuffer);
                 byte[] jpeg = jpegBuffer.toByteArray();
 
-                webSocket.send(ByteString.of(jpeg));
+                ws.send(ByteString.of(jpeg));
 
                 frameCount++;
                 runOnUiThread(() -> tvFrames.setText("Frames: " + frameCount));
